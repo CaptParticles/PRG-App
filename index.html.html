@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRG App PRO++</title>
+<style>
+body{margin:0;font-family:Inter,Arial;background:#0b0b0f;color:#fff}
+.screen{position:absolute;width:100%;height:100%;display:flex;justify-content:center;align-items:center}
+.card{width:92%;max-width:420px;background:#14141a;padding:20px;border-radius:22px;text-align:center}
+input,button,textarea{width:92%;padding:12px;margin:6px;border-radius:12px;border:none}
+button{background:linear-gradient(135deg,#c800ff,#6a00ff);color:white;cursor:pointer}
+.hidden{display:none}
+.nav{position:absolute;bottom:0;width:100%;display:flex;justify-content:space-around;background:#111;padding:12px}
+.chatBox{height:150px;overflow:auto;background:#000;padding:8px;border-radius:10px;text-align:left}
+.avatar{width:70px;height:70px;border-radius:50%;margin:10px}
+</style>
+</head>
+<body>
+
+<div id="auth" class="screen">
+<div class="card">
+<h1>PRG</h1>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="signup()">Sign Up</button>
+</div>
+</div>
+
+<div id="app" class="screen hidden">
+<div class="card">
+<h2 id="welcome"></h2>
+
+<div id="homePage">
+<p>Dashboard</p>
+<p id="time"></p>
+<p>Profiles: <span id="userCount"></span></p>
+</div>
+
+<div id="chatPage" class="hidden">
+<h3>Chat</h3>
+<div class="chatBox" id="chatBox"></div>
+<input id="chatInput" placeholder="Message">
+<button onclick="sendMsg()">Send</button>
+</div>
+
+<div id="streamPage" class="hidden">
+<h3>Live Stream</h3>
+<iframe id="streamFrame" width="100%" height="200"></iframe>
+</div>
+
+<div id="profilePage" class="hidden">
+<h3>Profile Config</h3>
+<img id="avatar" class="avatar" src="https://via.placeholder.com/80">
+<input type="file" onchange="uploadPic(this)">
+<input id="newUser" placeholder="Change Username">
+<input id="newPass" placeholder="Change Password">
+<button onclick="updateProfile()">Save</button>
+</div>
+
+<div id="adminPage" class="hidden">
+<h3>Admin Panel</h3>
+<input id="banUser" placeholder="Username to ban">
+<button onclick="banUserFunc()">Ban User</button>
+<input id="streamURL" placeholder="Stream Embed URL">
+<button onclick="saveStream()">Update Stream</button>
+<button onclick="wipeUsers()">⚠️ Reset All Profiles</button>
+</div>
+
+</div>
+
+<div class="nav">
+<button onclick="nav('home')">Home</button>
+<button onclick="nav('chat')">Chat</button>
+<button onclick="nav('stream')">Live</button>
+<button onclick="nav('profile')">Profile</button>
+<button onclick="logout()">Logout</button>
+</div>
+</div>
+
+<script>
+function ensureOwner(){
+ let u=JSON.parse(localStorage.users||"{}");
+ u["CaptParticles"]={password:"445674",avatar:"",banned:false};
+ localStorage.users=JSON.stringify(u);
+}
+ensureOwner();
+
+let currentUser=null;
+
+function getUsers(){return JSON.parse(localStorage.users)}
+function saveUsers(u){localStorage.users=JSON.stringify(u)}
+
+function login(){
+ let u=username.value,p=password.value,users=getUsers();
+ if(users[u] && users[u].banned) return alert('You are banned');
+ if(users[u]&&users[u].password===p){currentUser=u;openApp()}else alert('Wrong')
+}
+
+function signup(){
+ let u=username.value,p=password.value,users=getUsers();
+ if(users[u])return alert('Exists');
+ users[u]={password:p,avatar:"",banned:false};
+ saveUsers(users);
+ alert('Created');
+}
+
+function openApp(){
+ auth.classList.add('hidden');
+ app.classList.remove('hidden');
+ welcome.innerText='Welcome '+currentUser;
+
+ if(currentUser==='CaptParticles'){
+   adminPage.classList.remove('hidden');
+ } else {
+   adminPage.classList.add('hidden');
+ }
+
+ updateDashboard();
+ loadChat();
+ loadProfile();
+ loadStream();
+}
+
+function logout(){app.classList.add('hidden');auth.classList.remove('hidden')}
+
+function nav(p){
+ homePage.classList.add('hidden');
+ chatPage.classList.add('hidden');
+ profilePage.classList.add('hidden');
+ streamPage.classList.add('hidden');
+ if(p==='home')homePage.classList.remove('hidden');
+ if(p==='chat')chatPage.classList.remove('hidden');
+ if(p==='profile')profilePage.classList.remove('hidden');
+ if(p==='stream')streamPage.classList.remove('hidden');
+}
+
+// DASHBOARD
+function updateDashboard(){
+ userCount.innerText=Object.keys(getUsers()).length;
+ setInterval(()=>{
+  let d=new Date();
+  time.innerText=d.toLocaleTimeString();
+ },1000);
+}
+
+// CHAT
+function sendMsg(){
+ let msg=chatInput.value;
+ if(!msg)return;
+ localStorage.chat=(localStorage.chat||"")+currentUser+': '+msg+'\n';
+ chatInput.value='';
+ loadChat();
+}
+
+function loadChat(){chatBox.innerText=localStorage.chat||""}
+
+// PROFILE
+function loadProfile(){
+ let users=getUsers();
+ avatar.src=users[currentUser].avatar||'https://via.placeholder.com/80';
+}
+
+function updateProfile(){
+ if(currentUser==='CaptParticles') return alert('Owner locked');
+ let users=getUsers();
+ let nu=newUser.value,np=newPass.value;
+ if(nu){users[nu]=users[currentUser];delete users[currentUser];currentUser=nu}
+ if(np) users[currentUser].password=np;
+ saveUsers(users);
+ openApp();
+}
+
+function uploadPic(input){
+ let file=input.files[0];
+ let reader=new FileReader();
+ reader.onload=function(){
+  let users=getUsers();
+  users[currentUser].avatar=reader.result;
+  saveUsers(users);
+  avatar.src=reader.result;
+ }
+ if(file) reader.readAsDataURL(file);
+}
+
+// STREAM
+function saveStream(){
+ if(currentUser!=='CaptParticles') return alert('Owner only');
+ localStorage.stream=streamURL.value;
+ loadStream();
+}
+
+function loadStream(){
+ streamFrame.src=localStorage.stream||"";
+}
+
+// BAN SYSTEM
+function banUserFunc(){
+ if(currentUser!=='CaptParticles') return alert('Owner only');
+ let users=getUsers();
+ let u=banUser.value;
+ if(users[u] && u!=='CaptParticles'){
+   users[u].banned=true;
+   saveUsers(users);
+   alert(u+' banned');
+ } else alert('Invalid user');
+}
+
+// ADMIN RESET
+function wipeUsers(){
+ if(currentUser!=='CaptParticles')return;
+ localStorage.clear();
+ ensureOwner();
+ location.reload();
+}
+</script>
+
+</body>
+</html>
